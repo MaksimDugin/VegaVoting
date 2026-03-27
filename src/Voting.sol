@@ -33,10 +33,17 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
         bool withdrawn;
     }
 
+<<<<<<< codex/complete-voting-contract-assignment-4fm70k
+    // NOTE: kept as explicit immutable state vars to avoid constructor assignment issues.
+    IERC20 public immutable vvToken;
+    VoteResultNFT public immutable resultNFT;
+=======
     IERC20 public immutable VV_TOKEN;
     VoteResultNFT public immutable RESULT_NFT;
+>>>>>>> master
 
     mapping(bytes32 => Vote) private _votes;
+    bytes32[] private _voteIds;
     mapping(bytes32 => mapping(address => bool)) public hasVoted;
     mapping(address => StakePosition[]) private _stakes;
     mapping(address => bool) public isFinalizer;
@@ -64,19 +71,26 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
     error StakeAlreadyWithdrawn(address user, uint256 stakeId);
     error NotFinalizable(bytes32 id);
     error NotFinalizer(address caller);
+<<<<<<< codex/complete-voting-contract-assignment-4fm70k
+    error VoteIndexOutOfBounds(uint256 index);
+=======
+>>>>>>> master
 
     constructor(address initialOwner, IERC20 _vvToken, VoteResultNFT _resultNFT) Ownable(initialOwner) {
         vvToken = _vvToken;
         resultNFT = _resultNFT;
+<<<<<<< codex/complete-voting-contract-assignment-4fm70k
+=======
 
         // owner is finalizer by default
         isFinalizer[initialOwner] = true;
         emit FinalizerUpdated(initialOwner, true);
     }
+>>>>>>> master
 
-    // -----------------------------
-    // Admin controls
-    // -----------------------------
+        isFinalizer[initialOwner] = true;
+        emit FinalizerUpdated(initialOwner, true);
+    }
 
     function pause() external onlyOwner {
         _pause();
@@ -114,12 +128,9 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
             description: description
         });
 
+        _voteIds.push(id);
         emit VoteCreated(id, msg.sender, deadline, votingPowerThreshold, description);
     }
-
-    // -----------------------------
-    // Staking
-    // -----------------------------
 
     function stake(uint256 amount, uint256 lockDays) external whenNotPaused nonReentrant returns (uint256 stakeId) {
         if (amount == 0) revert InvalidAmount();
@@ -150,9 +161,18 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
         return _stakes[user].length;
     }
 
-    // -----------------------------
-    // Voting
-    // -----------------------------
+    function getStake(address user, uint256 stakeId) external view returns (StakePosition memory) {
+        return _getStake(user, stakeId);
+    }
+
+    function getVoteCount() external view returns (uint256) {
+        return _voteIds.length;
+    }
+
+    function voteIdAt(uint256 index) external view returns (bytes32) {
+        if (index >= _voteIds.length) revert VoteIndexOutOfBounds(index);
+        return _voteIds[index];
+    }
 
     function vote(bytes32 voteId, bool support) external whenNotPaused nonReentrant {
         Vote storage v = _getVote(voteId);
@@ -229,22 +249,20 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
         Vote storage v = _getVote(voteId);
         return (!v.finalized) && (block.timestamp >= v.deadline || v.yesVotes >= v.votingPowerThreshold);
     }
+<<<<<<< codex/complete-voting-contract-assignment-4fm70k
+=======
 
     // -----------------------------
     // Internals
     // -----------------------------
+>>>>>>> master
 
     function _finalize(bytes32 voteId) internal {
         Vote storage v = _getVote(voteId);
 
         if (v.finalized) revert VoteAlreadyFinalized(voteId);
 
-        bool passed;
-        if (v.yesVotes >= v.votingPowerThreshold) {
-            passed = true;
-        } else {
-            passed = v.yesVotes > v.noVotes;
-        }
+        bool passed = v.yesVotes >= v.votingPowerThreshold ? true : v.yesVotes > v.noVotes;
 
         v.finalized = true;
         v.passed = passed;
@@ -259,9 +277,7 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
 
         for (uint256 i = 0; i < userStakes.length; i++) {
             StakePosition storage s = userStakes[i];
-            if (s.withdrawn || block.timestamp >= s.unlockAt) {
-                continue;
-            }
+            if (s.withdrawn || block.timestamp >= s.unlockAt) continue;
 
             uint256 remaining = s.unlockAt - block.timestamp;
             uint256 normalized = Math.mulDiv(remaining, remaining, 1 days * 1 days);

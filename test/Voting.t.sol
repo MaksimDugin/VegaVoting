@@ -179,6 +179,25 @@ contract VotingTest is Test {
         assertTrue(finalized);
     }
 
+
+    function testGetStakeAndVoteCountHelpers() public {
+        bytes32 voteId = keccak256("helpers");
+
+        vm.prank(owner);
+        voting.createVote(voteId, uint64(block.timestamp + 1 days), 1 ether, "helpers");
+
+        vm.startPrank(alice);
+        token.approve(address(voting), 50 ether);
+        uint256 stakeId = voting.stake(50 ether, 2);
+        vm.stopPrank();
+
+        Voting.StakePosition memory st = voting.getStake(alice, stakeId);
+        assertEq(st.amount, 50 ether);
+        assertFalse(st.withdrawn);
+        assertEq(voting.getVoteCount(), 1);
+        assertEq(voting.voteIdAt(0), voteId);
+    }
+
     function testWithdrawAfterUnlock() public {
         vm.startPrank(alice);
         token.approve(address(voting), 100 ether);
@@ -210,6 +229,26 @@ contract VotingTest is Test {
         uint256 powerLater = voting.currentVotingPower(alice);
 
         assertGt(powerNow, powerLater);
+    }
+
+
+    function testResultNftEnumerable() public {
+        bytes32 voteId = keccak256("nft-enumerable");
+
+        vm.prank(owner);
+        voting.createVote(voteId, uint64(block.timestamp + 1 days), 1_000 ether, "Nft enum");
+
+        vm.startPrank(alice);
+        token.approve(address(voting), 100 ether);
+        voting.stake(100 ether, 4);
+        voting.vote(voteId, true);
+        vm.stopPrank();
+
+        uint256 tokenId = nft.tokenOfOwnerByIndex(owner, 0);
+        assertEq(tokenId, uint256(voteId));
+
+        string memory uri = nft.tokenURI(tokenId);
+        assertGt(bytes(uri).length, 10);
     }
 
     function testPauseBlocksStakeAndVote() public {
