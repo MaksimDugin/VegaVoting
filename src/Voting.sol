@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.28;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -33,9 +33,14 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
         bool withdrawn;
     }
 
+<<<<<<< codex/complete-voting-contract-assignment-4fm70k
     // NOTE: kept as explicit immutable state vars to avoid constructor assignment issues.
     IERC20 public immutable vvToken;
     VoteResultNFT public immutable resultNFT;
+=======
+    IERC20 public immutable VV_TOKEN;
+    VoteResultNFT public immutable RESULT_NFT;
+>>>>>>> master
 
     mapping(bytes32 => Vote) private _votes;
     bytes32[] private _voteIds;
@@ -66,11 +71,22 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
     error StakeAlreadyWithdrawn(address user, uint256 stakeId);
     error NotFinalizable(bytes32 id);
     error NotFinalizer(address caller);
+<<<<<<< codex/complete-voting-contract-assignment-4fm70k
     error VoteIndexOutOfBounds(uint256 index);
+=======
+>>>>>>> master
 
     constructor(address initialOwner, IERC20 _vvToken, VoteResultNFT _resultNFT) Ownable(initialOwner) {
         vvToken = _vvToken;
         resultNFT = _resultNFT;
+<<<<<<< codex/complete-voting-contract-assignment-4fm70k
+=======
+
+        // owner is finalizer by default
+        isFinalizer[initialOwner] = true;
+        emit FinalizerUpdated(initialOwner, true);
+    }
+>>>>>>> master
 
         isFinalizer[initialOwner] = true;
         emit FinalizerUpdated(initialOwner, true);
@@ -120,7 +136,7 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
         if (amount == 0) revert InvalidAmount();
         if (lockDays < 1 || lockDays > 4) revert InvalidDuration();
 
-        vvToken.safeTransferFrom(msg.sender, address(this), amount);
+        VV_TOKEN.safeTransferFrom(msg.sender, address(this), amount);
 
         uint64 unlockAt = uint64(block.timestamp + (lockDays * 1 days));
         _stakes[msg.sender].push(StakePosition({amount: amount, unlockAt: unlockAt, withdrawn: false}));
@@ -136,7 +152,7 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
         if (block.timestamp < stakePosition.unlockAt) revert StakeLocked(stakePosition.unlockAt);
 
         stakePosition.withdrawn = true;
-        vvToken.safeTransfer(msg.sender, stakePosition.amount);
+        VV_TOKEN.safeTransfer(msg.sender, stakePosition.amount);
 
         emit Withdrawn(msg.sender, stakeId, stakePosition.amount);
     }
@@ -233,6 +249,13 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
         Vote storage v = _getVote(voteId);
         return (!v.finalized) && (block.timestamp >= v.deadline || v.yesVotes >= v.votingPowerThreshold);
     }
+<<<<<<< codex/complete-voting-contract-assignment-4fm70k
+=======
+
+    // -----------------------------
+    // Internals
+    // -----------------------------
+>>>>>>> master
 
     function _finalize(bytes32 voteId) internal {
         Vote storage v = _getVote(voteId);

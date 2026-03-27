@@ -5,8 +5,11 @@ import {Test} from "forge-std/Test.sol";
 import {VVToken} from "../src/VVToken.sol";
 import {VoteResultNFT} from "../src/VoteResultNFT.sol";
 import {Voting} from "../src/Voting.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract VotingTest is Test {
+    using SafeERC20 for IERC20;
     VVToken token;
     VoteResultNFT nft;
     Voting voting;

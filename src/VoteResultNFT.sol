@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.28;
 
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {ERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
@@ -24,6 +24,10 @@ contract VoteResultNFT is ERC721Enumerable, Ownable {
 
     address public minter;
     mapping(uint256 => ResultData) private _results;
+<<<<<<< codex/complete-voting-contract-assignment-4fm70k
+=======
+    mapping(uint256 => string) private _customTokenUris;
+>>>>>>> master
 
     error NotMinter();
     error UnknownToken();

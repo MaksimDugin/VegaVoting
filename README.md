@@ -94,6 +94,7 @@ forge script script/Deploy.s.sol:Deploy \
 - `VVToken`
 - `VoteResultNFT`
 - `Voting`
+<<<<<<< codex/complete-voting-contract-assignment-4fm70k
 
 ---
 
@@ -131,6 +132,45 @@ forge script script/RunTwoPartyFlow.s.sol:RunTwoPartyFlow \
   -vvvv
 ```
 
+=======
+
+---
+
+## Голосование с двумя участниками (и подтверждение через Etherscan)
+
+Ниже детальный flow под ваш кейс с двумя private key участников.
+
+### 1) Подготовить окружение
+
+```bash
+export RPC_URL="https://sepolia.infura.io/v3/<KEY>"
+export ADMIN_PRIVATE_KEY="0x..."
+export VOTER1_PRIVATE_KEY="0x..."
+export VOTER2_PRIVATE_KEY="0x..."
+
+export VV_TOKEN_ADDRESS="0x..."
+export VOTING_ADDRESS="0x..."
+export RESULT_NFT_ADDRESS="0x..."
+
+export VOTE_ID="0x1111111111111111111111111111111111111111111111111111111111111111"
+export DESCRIPTION="Should VegaVoting proposal #1 pass?"
+export STAKE_AMOUNT="100000000000000000000" # 100 VV
+export LOCK_DAYS="4"
+export DEADLINE_OFFSET="86400" # 1 day
+# для ранней финализации (2 участника * 100 * 4^2 = 3200)
+export VOTING_POWER_THRESHOLD="3200000000000000000000"
+```
+
+### 2) Прогнать полный pipeline
+
+```bash
+forge script script/RunTwoPartyFlow.s.sol:RunTwoPartyFlow \
+  --rpc-url "$RPC_URL" \
+  --broadcast \
+  -vvvv
+```
+
+>>>>>>> master
 Скрипт:
 - создаёт vote;
 - переводит участникам VV;
@@ -169,6 +209,7 @@ forge script script/SetupDemoVote.s.sol:SetupDemoVote \
   --rpc-url "$RPC_URL" \
   --broadcast \
   -vvvv
+<<<<<<< codex/complete-voting-contract-assignment-4fm70k
 ```
 
 ### Отдельный скрипт для каждого участника
@@ -181,6 +222,20 @@ export VOTER_PRIVATE_KEY="$VOTER2_PRIVATE_KEY"
 forge script script/CastVote.s.sol:CastVote --rpc-url "$RPC_URL" --broadcast -vvvv
 ```
 
+=======
+```
+
+### Отдельный скрипт для каждого участника
+
+```bash
+export VOTER_PRIVATE_KEY="$VOTER1_PRIVATE_KEY"
+forge script script/CastVote.s.sol:CastVote --rpc-url "$RPC_URL" --broadcast -vvvv
+
+export VOTER_PRIVATE_KEY="$VOTER2_PRIVATE_KEY"
+forge script script/CastVote.s.sol:CastVote --rpc-url "$RPC_URL" --broadcast -vvvv
+```
+
+>>>>>>> master
 ---
 
 ## Замечания по дизайну
@@ -197,6 +252,7 @@ forge script script/CastVote.s.sol:CastVote --rpc-url "$RPC_URL" --broadcast -vv
 2. **Governance/staking layer**: `Voting` хранит stake-позиции и агрегирует voting power.
 3. **Result layer**: `VoteResultNFT` фиксирует неизменяемый итог в виде NFT.
 4. **Ops layer**: Foundry scripts для деплоя, голосования и реплицируемых демо-flow.
+<<<<<<< codex/complete-voting-contract-assignment-4fm70k
 
 
 
@@ -255,4 +311,6 @@ cast call $VOTING "getVote(bytes32)" $VOTE_ID --rpc-url $RPC_URL
 cast call $VOTERESULTNFT "balanceOf(address)" $ADMIN_ADDR --rpc-url $RPC_URL
 cast call $VOTERESULTNFT "tokenOfOwnerByIndex(address,uint256)" $ADMIN_ADDR 0 --rpc-url $RPC_URL
 ```
+=======
+>>>>>>> master
 
