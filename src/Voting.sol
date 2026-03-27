@@ -33,23 +33,28 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
         bool withdrawn;
     }
 
+    // NOTE: kept as explicit immutable state vars to avoid constructor assignment issues.
     IERC20 public immutable vvToken;
     VoteResultNFT public immutable resultNFT;
 
     mapping(bytes32 => Vote) private _votes;
+    bytes32[] private _voteIds;
     mapping(bytes32 => mapping(address => bool)) public hasVoted;
     mapping(address => StakePosition[]) private _stakes;
+    mapping(address => bool) public isFinalizer;
 
     event VoteCreated(bytes32 indexed id, address indexed creator, uint64 deadline, uint256 votingPowerThreshold, string description);
     event Staked(address indexed user, uint256 indexed stakeId, uint256 amount, uint64 unlockAt);
     event Withdrawn(address indexed user, uint256 indexed stakeId, uint256 amount);
     event Voted(bytes32 indexed voteId, address indexed voter, bool support, uint256 votingPower);
     event VoteFinalized(bytes32 indexed voteId, bool passed, uint256 yesVotes, uint256 noVotes, uint256 nftTokenId);
+    event FinalizerUpdated(address indexed account, bool allowed);
 
     error VoteAlreadyExists(bytes32 id);
     error VoteNotFound(bytes32 id);
     error VoteAlreadyFinalized(bytes32 id);
     error VoteNotOpen(bytes32 id);
+    error InvalidVoteId();
     error InvalidDeadline();
     error InvalidThreshold();
     error InvalidAmount();
@@ -60,17 +65,16 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
     error StakeLocked(uint64 unlockAt);
     error StakeAlreadyWithdrawn(address user, uint256 stakeId);
     error NotFinalizable(bytes32 id);
+    error NotFinalizer(address caller);
+    error VoteIndexOutOfBounds(uint256 index);
 
-    constructor(address initialOwner, IERC20 _vvToken, VoteResultNFT _resultNFT)
-        Ownable(initialOwner)
-    {
+    constructor(address initialOwner, IERC20 _vvToken, VoteResultNFT _resultNFT) Ownable(initialOwner) {
         vvToken = _vvToken;
         resultNFT = _resultNFT;
-    }
 
-    // -----------------------------
-    // Admin controls
-    // -----------------------------
+        isFinalizer[initialOwner] = true;
+        emit FinalizerUpdated(initialOwner, true);
+    }
 
     function pause() external onlyOwner {
         _pause();
@@ -78,6 +82,11 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
 
     function unpause() external onlyOwner {
         _unpause();
+    }
+
+    function setFinalizer(address account, bool allowed) external onlyOwner {
+        isFinalizer[account] = allowed;
+        emit FinalizerUpdated(account, allowed);
     }
 
     function createVote(
@@ -103,12 +112,9 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
             description: description
         });
 
+        _voteIds.push(id);
         emit VoteCreated(id, msg.sender, deadline, votingPowerThreshold, description);
     }
-
-    // -----------------------------
-    // Staking
-    // -----------------------------
 
     function stake(uint256 amount, uint256 lockDays) external whenNotPaused nonReentrant returns (uint256 stakeId) {
         if (amount == 0) revert InvalidAmount();
@@ -139,9 +145,18 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
         return _stakes[user].length;
     }
 
-    // -----------------------------
-    // Voting
-    // -----------------------------
+    function getStake(address user, uint256 stakeId) external view returns (StakePosition memory) {
+        return _getStake(user, stakeId);
+    }
+
+    function getVoteCount() external view returns (uint256) {
+        return _voteIds.length;
+    }
+
+    function voteIdAt(uint256 index) external view returns (bytes32) {
+        if (index >= _voteIds.length) revert VoteIndexOutOfBounds(index);
+        return _voteIds[index];
+    }
 
     function vote(bytes32 voteId, bool support) external whenNotPaused nonReentrant {
         Vote storage v = _getVote(voteId);
@@ -169,6 +184,8 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
     }
 
     function finalizeVote(bytes32 voteId) external nonReentrant {
+        if (!isFinalizer[msg.sender]) revert NotFinalizer(msg.sender);
+
         Vote storage v = _getVote(voteId);
 
         if (v.finalized) revert VoteAlreadyFinalized(voteId);
@@ -212,34 +229,22 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
         return _currentVotingPower(user);
     }
 
-    // -----------------------------
-    // Internals
-    // -----------------------------
+    function canFinalize(bytes32 voteId) external view returns (bool) {
+        Vote storage v = _getVote(voteId);
+        return (!v.finalized) && (block.timestamp >= v.deadline || v.yesVotes >= v.votingPowerThreshold);
+    }
 
     function _finalize(bytes32 voteId) internal {
         Vote storage v = _getVote(voteId);
 
         if (v.finalized) revert VoteAlreadyFinalized(voteId);
 
-        bool passed;
-        if (v.yesVotes >= v.votingPowerThreshold) {
-            passed = true;
-        } else {
-            passed = v.yesVotes > v.noVotes;
-        }
+        bool passed = v.yesVotes >= v.votingPowerThreshold ? true : v.yesVotes > v.noVotes;
 
         v.finalized = true;
         v.passed = passed;
 
-        uint256 nftTokenId = resultNFT.mintResult(
-            v.creator,
-            v.id,
-            v.description,
-            v.yesVotes,
-            v.noVotes,
-            passed,
-            v.deadline
-        );
+        uint256 nftTokenId = resultNFT.mintResult(v.creator, v.id, v.description, v.yesVotes, v.noVotes, passed, v.deadline);
 
         emit VoteFinalized(voteId, passed, v.yesVotes, v.noVotes, nftTokenId);
     }
@@ -249,9 +254,7 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
 
         for (uint256 i = 0; i < userStakes.length; i++) {
             StakePosition storage s = userStakes[i];
-            if (s.withdrawn || block.timestamp >= s.unlockAt) {
-                continue;
-            }
+            if (s.withdrawn || block.timestamp >= s.unlockAt) continue;
 
             uint256 remaining = s.unlockAt - block.timestamp;
             uint256 normalized = Math.mulDiv(remaining, remaining, 1 days * 1 days);
@@ -264,9 +267,9 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
         if (v.deadline == 0) revert VoteNotFound(voteId);
     }
 
-    function _getStake(address user, uint256 stakeId) internal view returns (StakePosition storage) {
+    function _getStake(address user, uint256 stakeId) internal view returns (StakePosition storage s) {
         StakePosition[] storage userStakes = _stakes[user];
         if (stakeId >= userStakes.length) revert StakeNotFound(user, stakeId);
-        return userStakes[stakeId];
+        s = userStakes[stakeId];
     }
 }
