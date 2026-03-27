@@ -2,15 +2,17 @@
 pragma solidity ^0.8.24;
 
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import {ERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 /// @title Vote Result NFT
 /// @notice Mints one NFT per finalized vote. The token URI stores the result metadata on-chain.
-contract VoteResultNFT is ERC721, Ownable {
+contract VoteResultNFT is ERC721Enumerable, Ownable {
     using Strings for uint256;
-        struct ResultData {
+
+    struct ResultData {
         bytes32 voteId;
         string description;
         uint256 yesVotes;
@@ -22,7 +24,6 @@ contract VoteResultNFT is ERC721, Ownable {
 
     address public minter;
     mapping(uint256 => ResultData) private _results;
-    mapping(uint256 => string) private _customTokenURIs;
 
     error NotMinter();
     error UnknownToken();
@@ -102,6 +103,10 @@ contract VoteResultNFT is ERC721, Ownable {
         );
 
         return string.concat("data:application/json;base64,", Base64.encode(bytes(json)));
+    }
+
+    function supportsInterface(bytes4 interfaceId) public view override(ERC721Enumerable, ERC721) returns (bool) {
+        return super.supportsInterface(interfaceId);
     }
 
     function _escapeJson(string memory input) internal pure returns (string memory) {
