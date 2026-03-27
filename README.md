@@ -97,6 +97,39 @@ forge script script/Deploy.s.sol:Deploy \
 
 ---
 
+
+## Отдельная верификация после деплоя (Sepolia)
+
+Если деплой уже сделан и `--verify` не сработал, используйте отдельный скрипт:
+
+```bash
+export ETHERSCAN_API_KEY="<KEY>"
+export DEPLOYER_ADDRESS="0x..."       # owner, который был передан в конструкторы
+export VV_TOKEN_ADDRESS="0x..."
+export RESULT_NFT_ADDRESS="0x..."
+export VOTING_ADDRESS="0x..."
+export INITIAL_SUPPLY="1000000000000000000000000"  # как на деплое (по умолчанию 1_000_000e18)
+export CHAIN="sepolia"
+export VERIFIER="etherscan"
+
+bash script/VerifySepolia.sh
+```
+
+Эквивалент одной ручной команды (как в вашем примере):
+
+```bash
+forge verify-contract --watch --chain sepolia \
+  <CONTRACT_ADDRESS> src/ContractFile.sol:ContractName \
+  --verifier etherscan --etherscan-api-key "$ETHERSCAN_API_KEY"
+```
+
+Скрипт отправляет 3 `forge verify-contract` запроса с корректно ABI-encoded constructor args:
+- `VVToken(address,uint256)`
+- `VoteResultNFT(address)`
+- `Voting(address,address,address)`
+
+Если был другой `INITIAL_SUPPLY` при деплое, обязательно передайте именно его, иначе verification будет fail.
+
 ## Голосование с двумя участниками (и подтверждение через Etherscan)
 
 Ниже детальный flow под ваш кейс с двумя private key участников.
@@ -197,6 +230,7 @@ forge script script/CastVote.s.sol:CastVote --rpc-url "$RPC_URL" --broadcast -vv
 2. **Governance/staking layer**: `Voting` хранит stake-позиции и агрегирует voting power.
 3. **Result layer**: `VoteResultNFT` фиксирует неизменяемый итог в виде NFT.
 4. **Ops layer**: Foundry scripts для деплоя, голосования и реплицируемых демо-flow.
+
 
 
 

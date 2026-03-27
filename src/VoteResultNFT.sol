@@ -105,7 +105,7 @@ contract VoteResultNFT is ERC721Enumerable, Ownable {
         return string.concat("data:application/json;base64,", Base64.encode(bytes(json)));
     }
 
-    function supportsInterface(bytes4 interfaceId) public view override(ERC721Enumerable) returns (bool) {   
+    function supportsInterface(bytes4 interfaceId) public view override(ERC721Enumerable, ERC721) returns (bool) {
         return super.supportsInterface(interfaceId);
     }
 
