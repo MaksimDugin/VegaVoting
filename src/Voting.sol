@@ -33,14 +33,9 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
         bool withdrawn;
     }
 
-<<<<<<< codex/complete-voting-contract-assignment-4fm70k
     // NOTE: kept as explicit immutable state vars to avoid constructor assignment issues.
     IERC20 public immutable vvToken;
     VoteResultNFT public immutable resultNFT;
-=======
-    IERC20 public immutable VV_TOKEN;
-    VoteResultNFT public immutable RESULT_NFT;
->>>>>>> master
 
     mapping(bytes32 => Vote) private _votes;
     bytes32[] private _voteIds;
@@ -71,22 +66,11 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
     error StakeAlreadyWithdrawn(address user, uint256 stakeId);
     error NotFinalizable(bytes32 id);
     error NotFinalizer(address caller);
-<<<<<<< codex/complete-voting-contract-assignment-4fm70k
     error VoteIndexOutOfBounds(uint256 index);
-=======
->>>>>>> master
 
     constructor(address initialOwner, IERC20 _vvToken, VoteResultNFT _resultNFT) Ownable(initialOwner) {
         vvToken = _vvToken;
         resultNFT = _resultNFT;
-<<<<<<< codex/complete-voting-contract-assignment-4fm70k
-=======
-
-        // owner is finalizer by default
-        isFinalizer[initialOwner] = true;
-        emit FinalizerUpdated(initialOwner, true);
-    }
->>>>>>> master
 
         isFinalizer[initialOwner] = true;
         emit FinalizerUpdated(initialOwner, true);
@@ -249,13 +233,6 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
         Vote storage v = _getVote(voteId);
         return (!v.finalized) && (block.timestamp >= v.deadline || v.yesVotes >= v.votingPowerThreshold);
     }
-<<<<<<< codex/complete-voting-contract-assignment-4fm70k
-=======
-
-    // -----------------------------
-    // Internals
-    // -----------------------------
->>>>>>> master
 
     function _finalize(bytes32 voteId) internal {
         Vote storage v = _getVote(voteId);

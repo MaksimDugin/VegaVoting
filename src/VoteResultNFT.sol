@@ -24,10 +24,6 @@ contract VoteResultNFT is ERC721Enumerable, Ownable {
 
     address public minter;
     mapping(uint256 => ResultData) private _results;
-<<<<<<< codex/complete-voting-contract-assignment-4fm70k
-=======
-    mapping(uint256 => string) private _customTokenUris;
->>>>>>> master
 
     error NotMinter();
     error UnknownToken();
