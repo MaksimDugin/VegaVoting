@@ -120,7 +120,7 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
         if (amount == 0) revert InvalidAmount();
         if (lockDays < 1 || lockDays > 4) revert InvalidDuration();
 
-        VV_TOKEN.safeTransferFrom(msg.sender, address(this), amount);
+        vvToken.safeTransferFrom(msg.sender, address(this), amount);
 
         uint64 unlockAt = uint64(block.timestamp + (lockDays * 1 days));
         _stakes[msg.sender].push(StakePosition({amount: amount, unlockAt: unlockAt, withdrawn: false}));
@@ -136,7 +136,7 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
         if (block.timestamp < stakePosition.unlockAt) revert StakeLocked(stakePosition.unlockAt);
 
         stakePosition.withdrawn = true;
-        VV_TOKEN.safeTransfer(msg.sender, stakePosition.amount);
+        vvToken.safeTransfer(msg.sender, stakePosition.amount);
 
         emit Withdrawn(msg.sender, stakeId, stakePosition.amount);
     }
