@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.28;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -33,8 +33,8 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
         bool withdrawn;
     }
 
-    IERC20 public immutable vvToken;
-    VoteResultNFT public immutable resultNFT;
+    IERC20 public immutable VV_TOKEN;
+    VoteResultNFT public immutable RESULT_NFT;
 
     mapping(bytes32 => Vote) private _votes;
     mapping(bytes32 => mapping(address => bool)) public hasVoted;
@@ -50,6 +50,7 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
     error VoteNotFound(bytes32 id);
     error VoteAlreadyFinalized(bytes32 id);
     error VoteNotOpen(bytes32 id);
+    error InvalidVoteId();
     error InvalidDeadline();
     error InvalidThreshold();
     error InvalidAmount();
@@ -61,11 +62,11 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
     error StakeAlreadyWithdrawn(address user, uint256 stakeId);
     error NotFinalizable(bytes32 id);
 
-    constructor(address initialOwner, IERC20 _vvToken, VoteResultNFT _resultNFT)
+    constructor(address initialOwner, IERC20 _vvToken, VoteResultNFT _resultNft)
         Ownable(initialOwner)
     {
-        vvToken = _vvToken;
-        resultNFT = _resultNFT;
+        VV_TOKEN = _vvToken;
+        RESULT_NFT = _resultNft;
     }
 
     // -----------------------------
@@ -114,7 +115,7 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
         if (amount == 0) revert InvalidAmount();
         if (lockDays < 1 || lockDays > 4) revert InvalidDuration();
 
-        vvToken.safeTransferFrom(msg.sender, address(this), amount);
+        VV_TOKEN.safeTransferFrom(msg.sender, address(this), amount);
 
         uint64 unlockAt = uint64(block.timestamp + (lockDays * 1 days));
         _stakes[msg.sender].push(StakePosition({amount: amount, unlockAt: unlockAt, withdrawn: false}));
@@ -130,7 +131,7 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
         if (block.timestamp < stakePosition.unlockAt) revert StakeLocked(stakePosition.unlockAt);
 
         stakePosition.withdrawn = true;
-        vvToken.safeTransfer(msg.sender, stakePosition.amount);
+        VV_TOKEN.safeTransfer(msg.sender, stakePosition.amount);
 
         emit Withdrawn(msg.sender, stakeId, stakePosition.amount);
     }
@@ -231,7 +232,7 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
         v.finalized = true;
         v.passed = passed;
 
-        uint256 nftTokenId = resultNFT.mintResult(
+        uint256 nftTokenId = RESULT_NFT.mintResult(
             v.creator,
             v.id,
             v.description,

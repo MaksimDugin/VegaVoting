@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.28;
 
 import {Script, console2} from "forge-std/Script.sol";
 import {VVToken} from "../src/VVToken.sol";
@@ -12,11 +12,16 @@ contract Deploy is Script {
         address deployer = vm.addr(deployerPk);
         uint256 initialSupply = vm.envOr("INITIAL_SUPPLY", uint256(1_000_000 ether));
 
+        console2.log("Deployer:", deployer);
+        console2.log("address0:", address(0));
+        require(deployer != address(0), "bad private key");
+
         vm.startBroadcast(deployerPk);
 
         token = new VVToken(deployer, initialSupply);
         nft = new VoteResultNFT(deployer);
         voting = new Voting(deployer, token, nft);
+
         nft.setMinter(address(voting));
 
         vm.stopBroadcast();

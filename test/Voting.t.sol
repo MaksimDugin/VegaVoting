@@ -5,8 +5,11 @@ import {Test} from "forge-std/Test.sol";
 import {VVToken} from "../src/VVToken.sol";
 import {VoteResultNFT} from "../src/VoteResultNFT.sol";
 import {Voting} from "../src/Voting.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract VotingTest is Test {
+    using SafeERC20 for IERC20;
     VVToken token;
     VoteResultNFT nft;
     Voting voting;
@@ -29,10 +32,10 @@ contract VotingTest is Test {
         nft.setMinter(address(voting));
 
         vm.prank(owner);
-        token.transfer(alice, 1_000 ether);
+        IERC20(address(token)).safeTransfer(alice, 1_000 ether);
 
         vm.prank(owner);
-        token.transfer(bob, 1_000 ether);
+        IERC20(address(token)).safeTransfer(bob, 1_000 ether);
     }
 
     function testCreateVoteOnlyOwner() public {
