@@ -1,34 +1,65 @@
-# HW 6 Voting Contract MVP
+# HW 6 — VegaVoting Protocol (Foundry + Sepolia)
 
-## Что уже реализовано
+Репозиторий реализует систему голосования со стейкингом токена `VV` и NFT-результатом по финализированному голосованию.
 
-- `VVToken.sol` — ERC20-токен VV.
-- `Voting.sol` — создание голосований, стейкинг VV, yes/no voting, ранняя финализация по threshold, финализация по deadline.
-- `VoteResultNFT.sol` — ERC721 NFT, который минтится при финализации и хранит результат голосования в metadata.
-- `script/Deploy.s.sol` — деплой под Foundry.
-- `script/SetupDemoVote.s.sol` — сценарий для создания голосования и участия двух адресов.
-- `test/Voting.t.sol` — базовые тесты.
+## Что реализовано по ТЗ
 
-## Модель MVP
+- `VVToken` (ERC20, OpenZeppelin v5): токен для стейкинга/голосования.
+- `Voting`:
+  - только админ (`owner`) создаёт голосование;
+  - уникальный `bytes32` id;
+  - параметры: `deadline`, `votingPowerThreshold`, `description`;
+  - стейкинг `A_i` на `D_i ∈ [1..4]` дней;
+  - voting power: `sum(A_i * Dremain_i^2)` (с нормализацией на `days^2`);
+  - голосование yes/no со стейкнутой силой;
+  - early finalize при достижении `yesVotes >= threshold`;
+  - finalize после `deadline`;
+  - отдельная роль `finalizer` + owner по умолчанию;
+  - emergency controls: `pause/unpause`.
+- `VoteResultNFT` (ERC721, OpenZeppelin v5): при финализации минтится NFT с on-chain metadata результата.
+- Деплой и сценарии через Foundry scripts.
+- Расширенный тестовый набор.
 
-- Голосование создаёт только `owner`.
-- Каждый vote имеет уникальный `bytes32 id`.
-- Voting power считается по формуле:
-  `power = sum(amount_i * remainingTime_i^2 / 1 days^2)`
-- Два пути завершения:
-  - `yesVotes >= votingPowerThreshold`
-  - или `block.timestamp >= deadline`
-- После финализации минтится NFT с результатом.
+## Контракты
 
-## Установка зависимостей
+- `src/VVToken.sol`
+- `src/VoteResultNFT.sol`
+- `src/Voting.sol`
 
-Нужны:
-- Foundry
-- OpenZeppelin Contracts v5
-- forge-std
+## Скрипты
 
-Пример:
+- `script/Deploy.s.sol` — деплой 3 контрактов.
+- `script/SetupDemoVote.s.sol` — базовый сценарий создания голосования + два голоса.
+- `script/CastVote.s.sol` — отдельный скрипт для одного участника (approve+stake+vote).
+- `script/RunTwoPartyFlow.s.sol` — end-to-end pipeline с двумя участниками и выводом метрик/итогов.
+
+## Тесты
+
+`test/Voting.t.sol` покрывает:
+
+- access control на create;
+- валидации createVote;
+- early finalize по threshold;
+- сценарий с двумя голосующими;
+- double-vote protection;
+- finalize после deadline;
+- ограничения finalizer роли;
+- grant finalizer;
+- withdraw после unlock;
+- decaying voting power;
+- pause-блокировку stake/vote.
+
+---
+
+## Установка
+
 ```bash
+# Foundry
+bash foundry-install.sh
+source ~/.bashrc
+foundryup
+
+# зависимости
 forge install OpenZeppelin/openzeppelin-contracts --no-commit
 forge install foundry-rs/forge-std --no-commit
 ```
@@ -37,53 +68,133 @@ forge install foundry-rs/forge-std --no-commit
 
 ```bash
 forge build
-forge test
+forge test -vv
 ```
+
+---
 
 ## Деплой в Sepolia
 
-Пример переменных окружения:
-
 ```bash
-export PRIVATE_KEY=0x...
-export RPC_URL=https://sepolia.infura.io/v3/...
+export RPC_URL="https://sepolia.infura.io/v3/<KEY>"
+export ETHERSCAN_API_KEY="<KEY>"
+export PRIVATE_KEY="0x..." # admin/deployer
+export INITIAL_SUPPLY="1000000000000000000000000" # 1m VV
 ```
-
-Деплой:
 
 ```bash
 forge script script/Deploy.s.sol:Deploy \
-  --rpc-url $RPC_URL \
+  --rpc-url "$RPC_URL" \
   --broadcast \
-  --verify
+  --verify \
+  -vvvv
 ```
 
-## Демонстрационное голосование
+Сохраните адреса из логов:
+- `VVToken`
+- `VoteResultNFT`
+- `Voting`
 
-После деплоя:
+---
+
+## Голосование с двумя участниками (и подтверждение через Etherscan)
+
+Ниже детальный flow под ваш кейс с двумя private key участников.
+
+### 1) Подготовить окружение
 
 ```bash
-export ADMIN_PRIVATE_KEY=0x...
-export VOTER1_PRIVATE_KEY=0x...
-export VOTER2_PRIVATE_KEY=0x...
-export VV_TOKEN_ADDRESS=0x...
-export VOTING_ADDRESS=0x...
-export VOTE_ID=0x1234...
-export DESCRIPTION="Should the proposal pass?"
-export VOTING_POWER_THRESHOLD=3200000000000000000000
+export RPC_URL="https://sepolia.infura.io/v3/<KEY>"
+export ADMIN_PRIVATE_KEY="0x..."
+export VOTER1_PRIVATE_KEY="0x..."
+export VOTER2_PRIVATE_KEY="0x..."
+
+export VV_TOKEN_ADDRESS="0x..."
+export VOTING_ADDRESS="0x..."
+export RESULT_NFT_ADDRESS="0x..."
+
+export VOTE_ID="0x1111111111111111111111111111111111111111111111111111111111111111"
+export DESCRIPTION="Should VegaVoting proposal #1 pass?"
+export STAKE_AMOUNT="100000000000000000000" # 100 VV
+export LOCK_DAYS="4"
+export DEADLINE_OFFSET="86400" # 1 day
+# для ранней финализации (2 участника * 100 * 4^2 = 3200)
+export VOTING_POWER_THRESHOLD="3200000000000000000000"
 ```
 
-Запуск:
+### 2) Прогнать полный pipeline
+
+```bash
+forge script script/RunTwoPartyFlow.s.sol:RunTwoPartyFlow \
+  --rpc-url "$RPC_URL" \
+  --broadcast \
+  -vvvv
+```
+
+Скрипт:
+- создаёт vote;
+- переводит участникам VV;
+- оба участника делают `approve -> stake -> vote(true)`;
+- печатает метрики голосования и данные NFT, если голосование уже final.
+
+### 3) Проверить транзакции на Etherscan
+
+Откройте в браузере:
+- `https://sepolia.etherscan.io/address/$VOTING_ADDRESS`
+- `https://sepolia.etherscan.io/address/$VV_TOKEN_ADDRESS`
+- `https://sepolia.etherscan.io/address/$RESULT_NFT_ADDRESS`
+
+На вкладке **Transactions / Events** подтвердите события:
+
+1. `VoteCreated(voteId, creator, deadline, threshold, description)`
+2. у каждого участника:
+   - `Approval(voter, voting, stakeAmount)` в `VVToken`
+   - `Staked(voter, stakeId, amount, unlockAt)`
+   - `Voted(voteId, voter, true, votingPower)`
+3. когда достигнут threshold или после deadline:
+   - `VoteFinalized(voteId, passed, yesVotes, noVotes, nftTokenId)`
+4. в NFT-контракте:
+   - `Transfer(0x0, owner, tokenId)` — mint result NFT.
+
+> Для отчёта обычно достаточно ссылок на tx hashes + скриншот события finalization.
+
+---
+
+## Альтернативно: по шагам отдельными скриптами
+
+### Создать голосование + раздать токены
 
 ```bash
 forge script script/SetupDemoVote.s.sol:SetupDemoVote \
-  --rpc-url $RPC_URL \
-  --broadcast
+  --rpc-url "$RPC_URL" \
+  --broadcast \
+  -vvvv
 ```
 
-## Что стоит сделать следующим шагом
+### Отдельный скрипт для каждого участника
 
-- Добавить более строгую модель quorum / threshold.
-- Добавить отдельный finalize role, если это потребуется по формулировке курса.
-- Добавить более подробные проверки на повторный vote / кастомную логику withdrawal.
-- Подготовить Sepolia verify commands и README с адресами контрактов.
+```bash
+export VOTER_PRIVATE_KEY="$VOTER1_PRIVATE_KEY"
+forge script script/CastVote.s.sol:CastVote --rpc-url "$RPC_URL" --broadcast -vvvv
+
+export VOTER_PRIVATE_KEY="$VOTER2_PRIVATE_KEY"
+forge script script/CastVote.s.sol:CastVote --rpc-url "$RPC_URL" --broadcast -vvvv
+```
+
+---
+
+## Замечания по дизайну
+
+- finalize сделан on-chain без оффчейн-агентов; вызвать может owner или назначенный finalizer.
+- ранняя финализация автоматически происходит прямо в `vote()` при достижении `yesVotes >= threshold`.
+- NFT результата минтится один раз на `tokenId = uint256(voteId)`.
+
+## Extra (system design)
+
+Логика протокола:
+
+1. **Asset layer**: `VVToken` (ERC20).
+2. **Governance/staking layer**: `Voting` хранит stake-позиции и агрегирует voting power.
+3. **Result layer**: `VoteResultNFT` фиксирует неизменяемый итог в виде NFT.
+4. **Ops layer**: Foundry scripts для деплоя, голосования и реплицируемых демо-flow.
+

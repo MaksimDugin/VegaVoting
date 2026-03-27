@@ -39,17 +39,20 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
     mapping(bytes32 => Vote) private _votes;
     mapping(bytes32 => mapping(address => bool)) public hasVoted;
     mapping(address => StakePosition[]) private _stakes;
+    mapping(address => bool) public isFinalizer;
 
     event VoteCreated(bytes32 indexed id, address indexed creator, uint64 deadline, uint256 votingPowerThreshold, string description);
     event Staked(address indexed user, uint256 indexed stakeId, uint256 amount, uint64 unlockAt);
     event Withdrawn(address indexed user, uint256 indexed stakeId, uint256 amount);
     event Voted(bytes32 indexed voteId, address indexed voter, bool support, uint256 votingPower);
     event VoteFinalized(bytes32 indexed voteId, bool passed, uint256 yesVotes, uint256 noVotes, uint256 nftTokenId);
+    event FinalizerUpdated(address indexed account, bool allowed);
 
     error VoteAlreadyExists(bytes32 id);
     error VoteNotFound(bytes32 id);
     error VoteAlreadyFinalized(bytes32 id);
     error VoteNotOpen(bytes32 id);
+    error InvalidVoteId();
     error InvalidDeadline();
     error InvalidThreshold();
     error InvalidAmount();
@@ -60,12 +63,15 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
     error StakeLocked(uint64 unlockAt);
     error StakeAlreadyWithdrawn(address user, uint256 stakeId);
     error NotFinalizable(bytes32 id);
+    error NotFinalizer(address caller);
 
-    constructor(address initialOwner, IERC20 _vvToken, VoteResultNFT _resultNFT)
-        Ownable(initialOwner)
-    {
+    constructor(address initialOwner, IERC20 _vvToken, VoteResultNFT _resultNFT) Ownable(initialOwner) {
         vvToken = _vvToken;
         resultNFT = _resultNFT;
+
+        // owner is finalizer by default
+        isFinalizer[initialOwner] = true;
+        emit FinalizerUpdated(initialOwner, true);
     }
 
     // -----------------------------
@@ -78,6 +84,11 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
 
     function unpause() external onlyOwner {
         _unpause();
+    }
+
+    function setFinalizer(address account, bool allowed) external onlyOwner {
+        isFinalizer[account] = allowed;
+        emit FinalizerUpdated(account, allowed);
     }
 
     function createVote(
@@ -169,6 +180,8 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
     }
 
     function finalizeVote(bytes32 voteId) external nonReentrant {
+        if (!isFinalizer[msg.sender]) revert NotFinalizer(msg.sender);
+
         Vote storage v = _getVote(voteId);
 
         if (v.finalized) revert VoteAlreadyFinalized(voteId);
@@ -212,6 +225,11 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
         return _currentVotingPower(user);
     }
 
+    function canFinalize(bytes32 voteId) external view returns (bool) {
+        Vote storage v = _getVote(voteId);
+        return (!v.finalized) && (block.timestamp >= v.deadline || v.yesVotes >= v.votingPowerThreshold);
+    }
+
     // -----------------------------
     // Internals
     // -----------------------------
@@ -231,15 +249,7 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
         v.finalized = true;
         v.passed = passed;
 
-        uint256 nftTokenId = resultNFT.mintResult(
-            v.creator,
-            v.id,
-            v.description,
-            v.yesVotes,
-            v.noVotes,
-            passed,
-            v.deadline
-        );
+        uint256 nftTokenId = resultNFT.mintResult(v.creator, v.id, v.description, v.yesVotes, v.noVotes, passed, v.deadline);
 
         emit VoteFinalized(voteId, passed, v.yesVotes, v.noVotes, nftTokenId);
     }
@@ -264,9 +274,9 @@ contract Voting is Ownable, Pausable, ReentrancyGuard {
         if (v.deadline == 0) revert VoteNotFound(voteId);
     }
 
-    function _getStake(address user, uint256 stakeId) internal view returns (StakePosition storage) {
+    function _getStake(address user, uint256 stakeId) internal view returns (StakePosition storage s) {
         StakePosition[] storage userStakes = _stakes[user];
         if (stakeId >= userStakes.length) revert StakeNotFound(user, stakeId);
-        return userStakes[stakeId];
+        s = userStakes[stakeId];
     }
 }
